@@ -42,9 +42,13 @@ It continuously buffers recent screen/audio capture and saves the last N seconds
 
 ## Requirements
 
-- macOS 15+
-- Apple Silicon or Intel — builds from 1.6.9 onward are universal binaries. Earlier releases are Apple Silicon only.
-- Swift 6
+> **This fork** (`xapqrt/ReplayMac`) is a personal build that tracks macOS 27 "Golden Gate" and is being extended toward full Medal-style clipping — see [docs/medal-parity-plan.md](docs/medal-parity-plan.md). Its requirements differ from upstream:
+
+- macOS 26 Tahoe or later (developed and tested on macOS 27 Golden Gate)
+- Apple silicon. `./build-app.sh` produces an arm64 binary by default; pass `--universal` to add an x86_64 slice for Intel Macs
+- Xcode 26.2 or later (Xcode 27 recommended); Swift 6.2+
+
+Upstream ReplayMac supports macOS 15+ and ships universal binaries.
 
 ## Download
 
@@ -145,7 +149,7 @@ Disconnected displays stay in the list as offline placeholders. If the preferred
 
 ## Troubleshooting
 
-**Can't record a hotkey in Settings?** Some macOS versions (currently the macOS 27 "Golden Gate" betas) have a system bug that stops the shortcut recorder from registering key presses. You can set every hotkey from the Terminal instead — see [Setting ReplayMac Hotkeys from the Terminal](docs/manual-hotkey-setup.md).
+**Can't record a hotkey in Settings?** On macOS 26/27 the shortcut recorder in `KeyboardShortcuts` 2.x silently lost its key-event monitor (see [sindresorhus/KeyboardShortcuts#241](https://github.com/sindresorhus/KeyboardShortcuts/issues/241)). This fork uses `KeyboardShortcuts` 3.1.0, which fixes it. If a build ever regresses, every hotkey can still be set from the Terminal — see [Setting ReplayMac Hotkeys from the Terminal](docs/manual-hotkey-setup.md).
 
 ## Support
 

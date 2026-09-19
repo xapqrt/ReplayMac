@@ -17,17 +17,30 @@ ICON_PATH="$ROOT_DIR/Resources/ReplayCap.icns"
 # signing and a provisioning profile via Xcode/Transporter.
 APP_NAME="ReplayMac"
 APPSTORE_FLAG=""
-# Universal (arm64 + x86_64) so the app runs on Intel Macs too. Rosetta does
-# not help here — it translates Intel to ARM, not the reverse — so an Intel
-# Mac needs a real x86_64 slice. Multi-arch builds land in
-# .build/apple/Products/Release rather than the per-arch directory.
-ARCH_FLAGS="--arch arm64 --arch x86_64"
-if [ "${1:-}" = "--appstore" ]; then
-  APP_NAME="ReplayCap"
-  APPSTORE_FLAG="-Xswiftc -DAPPSTORE"
-  ENTITLEMENTS="$ROOT_DIR/Resources/ReplayCap.appstore.entitlements"
-  printf 'Building Mac App Store variant (update checker disabled).\n'
-fi
+# This fork builds for Apple silicon only by default (thin arm64 build via the
+# native SwiftPM build system). Pass --universal to also produce an x86_64
+# slice for Intel Macs; multi-arch builds switch SwiftPM to the Xcode build
+# system and land in .build/apple/Products/Release instead of the per-arch
+# directory. macOS 28 drops Intel app support, so universal is opt-in.
+ARCH_FLAGS=""
+for arg in "$@"; do
+  case "$arg" in
+    --appstore)
+      APP_NAME="ReplayCap"
+      APPSTORE_FLAG="-Xswiftc -DAPPSTORE"
+      ENTITLEMENTS="$ROOT_DIR/Resources/ReplayCap.appstore.entitlements"
+      printf 'Building Mac App Store variant (update checker disabled).\n'
+      ;;
+    --universal)
+      ARCH_FLAGS="--arch arm64 --arch x86_64"
+      printf 'Building universal (arm64 + x86_64) binary.\n'
+      ;;
+    *)
+      printf 'Unknown option: %s\nUsage: %s [--appstore] [--universal]\n' "$arg" "$0" >&2
+      exit 64
+      ;;
+  esac
+done
 APP_DIR="$ROOT_DIR/dist/${APP_NAME}.app"
 
 resolve_signing_identity() {
@@ -87,7 +100,7 @@ swift build -c release --package-path "$ROOT_DIR" $ARCH_FLAGS $APPSTORE_FLAG
 # ARCH_FLAGS must be repeated here: without them SwiftPM reports the per-arch
 # path and we would ship a thin binary out of a universal build.
 # shellcheck disable=SC2086
-BIN_DIR="$(swift build -c release --show-bin-path --package-path "$ROOT_DIR" $ARCH_FLAGS)"
+BIN_DIR="$(swift build -c release --show-bin-path --package-path "$ROOT_DIR" $ARCH_FLAGS $APPSTORE_FLAG)"
 BIN_PATH="$BIN_DIR/$BIN_NAME"
 
 rm -rf "$APP_DIR"

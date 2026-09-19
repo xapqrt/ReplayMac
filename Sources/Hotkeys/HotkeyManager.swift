@@ -13,17 +13,26 @@ public final class HotkeyManager: @unchecked Sendable {
 
     private var isStarted = false
 
+    /// Every shortcut the app registers, in the order shown in Settings.
+    /// Used by `stop()` and by callers that need to enumerate them (e.g. the
+    /// menu bar hint that checks whether any save shortcut is configured).
+    public static let allNames: [KeyboardShortcuts.Name] = [
+        .saveClip,
+        .toggleRecording,
+        .saveLast15Seconds,
+        .saveLast60Seconds,
+        .saveLongBuffer,
+        .toggleSessionRecording,
+        .openClipLibrary
+    ]
+
     public init() {}
 
-    deinit {
-        KeyboardShortcuts.removeHandler(for: .saveClip)
-        KeyboardShortcuts.removeHandler(for: .toggleRecording)
-        KeyboardShortcuts.removeHandler(for: .saveLast15Seconds)
-        KeyboardShortcuts.removeHandler(for: .saveLast60Seconds)
-        KeyboardShortcuts.removeHandler(for: .saveLongBuffer)
-        KeyboardShortcuts.removeHandler(for: .toggleSessionRecording)
-        KeyboardShortcuts.removeHandler(for: .openClipLibrary)
-    }
+    // No `deinit` cleanup: KeyboardShortcuts 3.x is compiled with MainActor
+    // default isolation, so its handler API cannot be called from a
+    // nonisolated deinit. The manager is owned by the AppDelegate for the
+    // whole process lifetime; callers that really need to unregister use
+    // `stop()` from the main actor.
 
     public func start() {
         guard !isStarted else {
@@ -51,6 +60,18 @@ public final class HotkeyManager: @unchecked Sendable {
         }
         KeyboardShortcuts.onKeyUp(for: .openClipLibrary) { [weak self] in
             self?.onOpenClipLibrary?()
+        }
+    }
+
+    /// Unregisters every handler installed by `start()`. Safe to call when
+    /// not started.
+    public func stop() {
+        guard isStarted else {
+            return
+        }
+        isStarted = false
+        for name in Self.allNames {
+            KeyboardShortcuts.removeHandler(for: name)
         }
     }
 }

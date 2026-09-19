@@ -4,22 +4,103 @@ on:
   push:
     branches:
       - main
+      - "arena/**"
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # Primary target: the same OS + toolchain as the development machine
+  # (macOS 27 Golden Gate, Xcode 27). GitHub publishes this image as a
+  # public preview, so a second job on the GA macOS 26 image keeps a
+  # fallback signal if the preview runner is unavailable.
   test:
-    runs-on: macos-latest
-    timeout-minutes: 20
+    name: Build & test (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: xcode-27
+            required: true
+          - runner: macos-26
+            required: false
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ !matrix.required }}
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Show Swift version
-        run: swift --version
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ matrix.runner }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            spm-${{ matrix.runner }}-
+
+      - name: Resolve packages
+        run: swift package resolve
+
+      - name: Show resolved pins
+        run: cat Package.resolved
 
       - name: Build
         run: swift build
 
       - name: Test
         run: swift test
+
+  # Produces the actual .app (ad-hoc signed) so packaging regressions in
+  # build-app.sh are caught, and uploads it as an artifact you can download
+  # and run on the M4 Air.
+  app:
+    name: Package ReplayMac.app (xcode-27)
+    needs: test
+    runs-on: xcode-27
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-app-xcode-27-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            spm-app-xcode-27-
+
+      - name: Build app bundle
+        run: ./build-app.sh
+
+      - name: Inspect bundle
+        run: |
+          lipo -info dist/ReplayMac.app/Contents/MacOS/ReplayMac
+          /usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' dist/ReplayMac.app/Contents/Info.plist
+          codesign -dv --verbose=2 dist/ReplayMac.app 2>&1 | head -20
+
+      - name: Zip app
+        run: ditto -c -k --keepParent dist/ReplayMac.app ReplayMac.app.zip
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReplayMac-${{ github.sha }}
+          path: ReplayMac.app.zip
+          retention-days: 14

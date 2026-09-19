@@ -1,9 +1,12 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.2
 import PackageDescription
 
+// This fork targets Apple silicon Macs on macOS 26 Tahoe / macOS 27 Golden Gate.
+// Raising the floor from macOS 15 lets the app use Liquid Glass, SpeechAnalyzer
+// and the other 26+ frameworks directly instead of behind availability gates.
 let package = Package(
     name: "ReplayCap",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS(.v26)],
     products: [
         .executable(name: "ReplayCap", targets: ["ReplayCap"]),
         // Library product consumed by the Xcode wrapper project
@@ -16,7 +19,10 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0"),
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.2.0"),
+        // 3.1.0 is the first release whose shortcut recorder works on macOS 27
+        // (the 2.x recorder lost its event monitor on 26/27, see
+        // sindresorhus/KeyboardShortcuts#241).
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.1.0"),
         .package(url: "https://github.com/sindresorhus/Defaults", from: "9.0.0")
     ],
     targets: [
@@ -26,8 +32,7 @@ let package = Package(
                 "Branding", "Capture", "Encode", "RingBuffer", "Save", "Audio", "UI", "Hotkeys", "Feedback",
                 .product(name: "Defaults", package: "Defaults")
             ],
-            path: "Sources/App",
-            swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
+            path: "Sources/App"
         ),
         .target(
             name: "Branding",
