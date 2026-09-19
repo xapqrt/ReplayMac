@@ -6,17 +6,20 @@ import Feedback
 
 @MainActor
 extension AppDelegate {
-    func saveClipFromUI() {
-        saveClip(lastSeconds: TimeInterval(AppSettings.bufferDurationSeconds))
+    func saveClipFromUI(trigger: ClipTrigger = .menu) {
+        saveClip(lastSeconds: TimeInterval(AppSettings.bufferDurationSeconds), trigger: trigger)
     }
 
-    func saveLongBufferFromUI() {
-        saveLongBuffer(lastSeconds: TimeInterval(AppSettings.longBufferDurationSeconds))
+    func saveLongBufferFromUI(trigger: ClipTrigger = .menu) {
+        saveLongBuffer(lastSeconds: TimeInterval(AppSettings.longBufferDurationSeconds), trigger: trigger)
     }
 
-    func saveClip(lastSeconds: TimeInterval) {
+    func saveClip(lastSeconds: TimeInterval, trigger: ClipTrigger) {
+        // Resolve the source app now, on the trigger, not after the export:
+        // by then the user may have tabbed away from the game.
+        let sourceApp = currentForegroundApp()
         Task {
-            await saveConfiguredClip(lastSeconds: lastSeconds)
+            await saveConfiguredClip(lastSeconds: lastSeconds, trigger: trigger, sourceApp: sourceApp)
         }
     }
 
@@ -34,13 +37,18 @@ extension AppDelegate {
             && AppSettings.dualCaptureSaveMode == DualCaptureSaveMode.separateFiles.rawValue
     }
 
-    func saveLongBuffer(lastSeconds: TimeInterval) {
+    func saveLongBuffer(lastSeconds: TimeInterval, trigger: ClipTrigger) {
+        let sourceApp = currentForegroundApp()
         Task {
-            await saveConfiguredLongBufferClip(lastSeconds: lastSeconds)
+            await saveConfiguredLongBufferClip(lastSeconds: lastSeconds, trigger: trigger, sourceApp: sourceApp)
         }
     }
 
-    func saveConfiguredClip(lastSeconds: TimeInterval) async {
+    func saveConfiguredClip(
+        lastSeconds: TimeInterval,
+        trigger: ClipTrigger = .unknown,
+        sourceApp: ClipSourceApp? = nil
+    ) async {
         guard let outputDirectory = selectedOutputDirectoryOrNotify() else {
             menuBarState.showSaveFailedBriefly()
             return
@@ -78,7 +86,7 @@ extension AppDelegate {
         do {
             print("Saving clip to output directory: \(outputDirectory.path(percentEncoded: false))")
 
-            let baseName = resolvedClipBaseName()
+            let baseName = resolvedClipBaseName(sourceApp: sourceApp)
             let finalURLs: [URL]
             if isSeparateDualSaveMode {
                 finalURLs = try await clipSaver.saveDualDisplayClips(
@@ -96,6 +104,15 @@ extension AppDelegate {
                 )
                 finalURLs = [savedURL]
             }
+
+            recordCaptureMetadata(
+                for: finalURLs,
+                in: outputDirectory,
+                kind: .replay,
+                trigger: trigger,
+                sourceApp: sourceApp,
+                requestedDuration: lastSeconds
+            )
 
             menuBarState.finishSaving(success: true)
             statusItemController.setLastClip(finalURLs.first)
@@ -117,7 +134,11 @@ extension AppDelegate {
         }
     }
 
-    func saveConfiguredLongBufferClip(lastSeconds: TimeInterval) async {
+    func saveConfiguredLongBufferClip(
+        lastSeconds: TimeInterval,
+        trigger: ClipTrigger = .unknown,
+        sourceApp: ClipSourceApp? = nil
+    ) async {
         guard let outputDirectory = selectedOutputDirectoryOrNotify() else {
             menuBarState.showSaveFailedBriefly()
             return
@@ -164,7 +185,16 @@ extension AppDelegate {
                 lastSeconds: lastSeconds,
                 outputDirectory: outputDirectory,
                 mergeAudioTracks: AppSettings.mergeAudioTracks,
-                baseName: resolvedClipBaseName()
+                baseName: resolvedClipBaseName(sourceApp: sourceApp)
+            )
+
+            recordCaptureMetadata(
+                for: [savedURL],
+                in: outputDirectory,
+                kind: .extendedReplay,
+                trigger: trigger,
+                sourceApp: sourceApp,
+                requestedDuration: lastSeconds
             )
 
             menuBarState.finishSaving(success: true)
@@ -214,24 +244,51 @@ extension AppDelegate {
 
     /// Resolves the configured file-name template using the app that was
     /// frontmost when the save was triggered (typically the game being clipped).
-    func resolvedClipBaseName() -> String {
+    func resolvedClipBaseName(sourceApp: ClipSourceApp?) -> String {
         FilenameTemplate.resolve(
             template: AppSettings.clipFilenameTemplate,
-            appName: currentForegroundAppName(),
+            appName: sourceApp?.name,
             dateFormat: AppSettings.clipDateFormat,
             timeFormat: AppSettings.clipTimeFormat
         )
     }
 
-    private func currentForegroundAppName() -> String? {
+    /// The app in front right now, or nil when that is ReplayCap itself (a
+    /// save triggered from our own menu should not be attributed to us).
+    func currentForegroundApp() -> ClipSourceApp? {
         guard let app = NSWorkspace.shared.frontmostApplication else {
             return nil
         }
-        // Don't name clips after ReplayCap itself when it happens to be frontmost.
         if app.bundleIdentifier == Bundle.main.bundleIdentifier {
             return nil
         }
-        return app.localizedName
+        guard let name = app.localizedName, !name.isEmpty else {
+            return nil
+        }
+        return ClipSourceApp(bundleIdentifier: app.bundleIdentifier, name: name)
+    }
+
+    /// Attaches capture facts (kind, trigger, source app) to freshly written
+    /// clips so the library can group by game and filter by type. Best effort:
+    /// a metadata failure must never turn a successful save into an error.
+    func recordCaptureMetadata(
+        for fileURLs: [URL],
+        in outputDirectory: URL,
+        kind: ClipCaptureKind,
+        trigger: ClipTrigger,
+        sourceApp: ClipSourceApp?,
+        requestedDuration: TimeInterval?
+    ) {
+        let record = ClipCaptureRecord(
+            kind: kind,
+            trigger: trigger,
+            sourceApp: sourceApp,
+            capturedAt: Date(),
+            requestedDurationSeconds: requestedDuration
+        )
+        for fileURL in fileURLs {
+            ClipLibraryMetadataStore.recordCapture(record, for: fileURL, in: outputDirectory)
+        }
     }
 
     private func availableDiskCapacityBytes() -> Int64? {

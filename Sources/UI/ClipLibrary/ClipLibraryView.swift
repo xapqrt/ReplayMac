@@ -70,6 +70,9 @@ public struct ClipLibraryView: View {
         .onReceive(NotificationCenter.default.publisher(for: .replayCapClipSaved)) { _ in
             Task { await model.reload() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .replayCapClipMetadataDidChange)) { _ in
+            Task { await model.reload() }
+        }
         .alert("Delete Clip?", isPresented: deleteAlertBinding, presenting: deleteCandidate) { row in
             Button("Delete", role: .destructive) {
                 Task {
@@ -259,6 +262,15 @@ public struct ClipLibraryView: View {
                     .foregroundStyle(row.userMetadata.tags.isEmpty ? AppTheme.textSecondary : AppTheme.accent)
             }
             .width(min: 110, ideal: 150)
+
+            TableColumn("Source") { row in
+                Text(row.sourceLabel)
+                    .lineLimit(1)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(row.sourceAppName == nil ? AppTheme.textSecondary : AppTheme.textPrimary)
+                    .help(row.userMetadata.capture.map { "\($0.kind.title) · \($0.trigger.rawValue)" } ?? "")
+            }
+            .width(min: 100, ideal: 140)
 
             TableColumn("Duration") { row in
                 Text(row.durationLabel)
@@ -722,7 +734,22 @@ private struct ClipRow: Identifiable {
         userMetadata.tags.isEmpty ? "No tags" : userMetadata.tags.joined(separator: ", ")
     }
     var searchText: String {
-        ([displayTitle, fileName, userMetadata.notes] + userMetadata.tags).joined(separator: " ")
+        ([displayTitle, fileName, userMetadata.notes, sourceAppName ?? ""] + userMetadata.tags)
+            .joined(separator: " ")
+    }
+
+    /// The game/app the clip was captured from, when the pipeline recorded it.
+    var sourceAppName: String? {
+        userMetadata.capture?.sourceApp?.name
+    }
+
+    /// "Game name", falling back to the capture kind ("Session") for clips
+    /// captured while no other app was in front, and "—" for clips that
+    /// predate capture records.
+    var sourceLabel: String {
+        if let sourceAppName { return sourceAppName }
+        if let kind = userMetadata.capture?.kind { return kind.title }
+        return "—"
     }
 
     var durationLabel: String {
@@ -976,17 +1003,26 @@ private final class ClipLibraryViewModel: ObservableObject {
         )
     }
 
+    /// Forgets entries for files that vanished. Only touches the in-memory
+    /// copy: the on-disk file is pruned by the store's existence check on the
+    /// next merge, and by `pruneMissingEntries` here, so an entry the pipeline
+    /// wrote for a clip saved *during* this reload is never mistaken for stale.
     private func pruneMissingMetadata() {
         let liveKeys = Set(rows.map { ClipLibraryMetadataStore.key(for: $0.info.fileURL) })
         metadataByPath = metadataByPath.filter { liveKeys.contains($0.key) }
-        persistMetadata()
+        guard let outputDirectory = AppSettings.outputDirectoryURL else {
+            return
+        }
+        ClipLibraryMetadataStore.pruneMissingEntries(in: outputDirectory)
     }
 
+    /// Merges (never overwrites) so capture records written by the pipeline
+    /// while this window held a stale copy survive.
     private func persistMetadata() {
         guard let outputDirectory = AppSettings.outputDirectoryURL else {
             return
         }
-        ClipLibraryMetadataStore.save(metadataByPath, in: outputDirectory)
+        ClipLibraryMetadataStore.merge(metadataByPath, in: outputDirectory)
     }
 
     private func sanitizedFileBaseName(_ requestedName: String) -> String {

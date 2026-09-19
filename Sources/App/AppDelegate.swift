@@ -50,6 +50,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     /// True while a start→stop session recording is actively writing to disk.
     var isSessionRecording = false
     var isSessionFinalizeInProgress = false
+    /// The app that was in front when the session started (the game), captured
+    /// then because by the time the user stops they are often somewhere else.
+    var sessionSourceApp: ClipSourceApp?
     var isTerminatingAfterSessionSave = false
 
     let menuBarState = MenuBarState()

@@ -68,6 +68,7 @@ extension AppDelegate {
         videoEncoder.requestKeyframe()
 
         isSessionRecording = true
+        sessionSourceApp = currentForegroundApp()
         menuBarState.setSessionRecording(true)
         statusItemController.refreshPresentation()
 
@@ -165,11 +166,21 @@ extension AppDelegate {
                 return nil
             }
 
+            let sourceApp = sessionSourceApp ?? currentForegroundApp()
             let savedURL = try await sessionRecorder.saveEntireRecording(
                 outputDirectory: outputDirectory,
                 mergeAudioTracks: AppSettings.mergeAudioTracks,
-                baseName: resolvedClipBaseName()
+                baseName: resolvedClipBaseName(sourceApp: sourceApp)
             )
+            recordCaptureMetadata(
+                for: [savedURL],
+                in: outputDirectory,
+                kind: .session,
+                trigger: userInitiated ? .hotkey : .automatic,
+                sourceApp: sourceApp,
+                requestedDuration: nil
+            )
+            sessionSourceApp = nil
             await sessionRecorder.configure(
                 enabled: false,
                 maxDurationSeconds: .infinity,
