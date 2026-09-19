@@ -1448,8 +1448,56 @@ private struct ClipTrimView: View {
     @State private var cropAspect: CropAspectPreset = .free
     @State private var videoDisplaySize = CGSize(width: 16, height: 9)
     @State private var activeExportSession: AVAssetExportSession?
+    @State private var sizeTargetID = ClipTrimView.originalSizeTargetID
+    @State private var sourceVideoInfo: SourceVideoInfo?
+    @StateObject private var sizedExport = SizedExportProgress()
+
+    static let originalSizeTargetID = "original"
+
+    /// What the size planner needs to know about the loaded clip.
+    struct SourceVideoInfo: Equatable {
+        var width: Int
+        var height: Int
+        var frameRate: Double
+        var hasAudio: Bool
+    }
+
+    /// Progress + cancel handle for a size-targeted export. A main-actor
+    /// class (hence Sendable) so the exporter's background progress callback
+    /// can reach it without capturing the view.
+    @MainActor
+    final class SizedExportProgress: ObservableObject {
+        @Published var fraction: Double = 0
+        var exporter: SizedVideoExporter?
+    }
 
     private var isBusy: Bool { isExporting || isExportingGIF }
+
+    private var selectedSizeTarget: SizedExportPlanner.Target? {
+        SizedExportPlanner.Target.presets.first { $0.id == sizeTargetID }
+    }
+
+    /// Encode plan for the current trim/crop/target, nil for "Original".
+    private var sizedPlan: SizedExportPlanner.Plan? {
+        guard let target = selectedSizeTarget, let info = sourceVideoInfo else { return nil }
+        var width = info.width
+        var height = info.height
+        if let crop = activeCrop {
+            let rect = VideoCropper.pixelRect(for: crop, displaySize: videoDisplaySize)
+            if rect.width >= 2, rect.height >= 2 {
+                width = Int(rect.width)
+                height = Int(rect.height)
+            }
+        }
+        return SizedExportPlanner.plan(
+            durationSeconds: max(trimEnd - trimStart, 0.1),
+            sourceWidth: width,
+            sourceHeight: height,
+            sourceFrameRate: info.frameRate,
+            targetBytes: target.bytes,
+            hasAudio: info.hasAudio
+        )
+    }
     private var activeCrop: NormalizedVideoCrop? {
         guard cropEnabled else { return nil }
         let crop = NormalizedVideoCrop(cropRect)
@@ -1542,6 +1590,34 @@ private struct ClipTrimView: View {
                 Spacer()
             }
 
+            HStack(spacing: 8) {
+                Text("Target size")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(AppTheme.textSecondary)
+                Picker("Target size", selection: $sizeTargetID) {
+                    Text("Original").tag(Self.originalSizeTargetID)
+                    ForEach(SizedExportPlanner.Target.presets) { target in
+                        Text(target.title).tag(target.id)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: 380)
+                .disabled(isBusy)
+                .help("Re-encode so the export fits a sharing limit (20 MB is Discord's free upload cap). Original keeps the source quality.")
+
+                if let plan = sizedPlan {
+                    Text("\(plan.summary) · ≈ \(ByteCountFormatter.string(fromByteCount: plan.estimatedBytes, countStyle: .file))")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(plan.fitsTarget ? AppTheme.textSecondary : .orange)
+                        .lineLimit(1)
+                        .help(plan.fitsTarget
+                              ? "Estimated output size at the chosen limit"
+                              : "Even at the lowest quality this range may not fit. Shorten the trim.")
+                }
+                Spacer()
+            }
+
             HStack {
                 Text(url.lastPathComponent)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -1555,6 +1631,19 @@ private struct ClipTrimView: View {
                     // export never leaves the sheet with no way out.
                     Button("Cancel Export", role: .cancel) {
                         session.cancelExport()
+                    }
+                    .help("Stop the export in progress")
+                }
+
+                if isExporting, let exporter = sizedExport.exporter {
+                    ProgressView(value: sizedExport.fraction)
+                        .progressViewStyle(.linear)
+                        .frame(width: 120)
+                    Text("\(Int((sizedExport.fraction * 100).rounded()))%")
+                        .font(.system(size: 11, weight: .medium, design: .rounded).monospacedDigit())
+                        .foregroundStyle(AppTheme.textSecondary)
+                    Button("Cancel Export", role: .cancel) {
+                        exporter.cancel()
                     }
                     .help("Stop the export in progress")
                 }
@@ -1587,7 +1676,7 @@ private struct ClipTrimView: View {
                             .controlSize(.small)
                     } else {
                         Label(
-                            activeCrop == nil ? "Export Trim" : "Export Trim & Crop",
+                            exportButtonTitle,
                             systemImage: "square.and.arrow.down"
                         )
                     }
@@ -1614,6 +1703,13 @@ private struct ClipTrimView: View {
         }
     }
 
+    private var exportButtonTitle: String {
+        if let target = selectedSizeTarget {
+            return "Export Under \(target.title)"
+        }
+        return activeCrop == nil ? "Export Trim" : "Export Trim & Crop"
+    }
+
     private func loadClip() async {
         let asset = AVURLAsset(url: url)
         let loadedDuration = (try? await asset.load(.duration)) ?? .zero
@@ -1621,6 +1717,15 @@ private struct ClipTrimView: View {
         let choices = await ClipAudioTracks.choices(for: asset)
         let displaySize = (try? await VideoCropper.geometry(for: asset).displaySize)
             ?? CGSize(width: 16, height: 9)
+        let videoTrack = try? await asset.loadTracks(withMediaType: .video).first
+        let nominalFrameRate = (try? await videoTrack?.load(.nominalFrameRate)) ?? 30
+        let audioTrackCount = (try? await asset.loadTracks(withMediaType: .audio).count) ?? 0
+        let info = SourceVideoInfo(
+            width: max(Int(displaySize.width.rounded()), 2),
+            height: max(Int(displaySize.height.rounded()), 2),
+            frameRate: Double(nominalFrameRate),
+            hasAudio: audioTrackCount > 0
+        )
 
         await MainActor.run {
             duration = seconds
@@ -1628,6 +1733,7 @@ private struct ClipTrimView: View {
             trimEnd = seconds
             audioTrackChoices = choices
             videoDisplaySize = displaySize
+            sourceVideoInfo = info
             let newPlayer = AVPlayer(playerItem: AVPlayerItem(asset: asset))
             ClipAudioTracks.apply(selection: selectedAudioTrackID, choices: choices, to: newPlayer.currentItem)
             player = newPlayer
@@ -1657,12 +1763,18 @@ private struct ClipTrimView: View {
                 exportAsset = asset
             }
 
+            let sizeTarget = selectedSizeTarget
+            let plan = sizedPlan
+
             var suffixParts = ["Trimmed"]
             if crop != nil {
                 suffixParts.append("Cropped")
             }
             if let soloChoice {
                 suffixParts.append(soloChoice.label.filter { !$0.isWhitespace })
+            }
+            if let sizeTarget {
+                suffixParts.append(sizeTarget.title.filter { !$0.isWhitespace })
             }
             let suffix = suffixParts.joined(separator: "_")
             let suggestedURL = try ClipMetadata.generateUniqueFileURL(
@@ -1672,13 +1784,41 @@ private struct ClipTrimView: View {
             guard let outputURL = await ExportDestinationPicker.chooseDestination(
                 suggestedURL: suggestedURL,
                 contentType: .mpeg4Movie,
-                title: "Export Trimmed Clip"
+                title: sizeTarget.map { "Export Clip Under \($0.title)" } ?? "Export Trimmed Clip"
             ) else {
                 return
             }
             let start = CMTime(seconds: trimStart, preferredTimescale: 600)
             let end = CMTime(seconds: trimEnd, preferredTimescale: 600)
             let range = CMTimeRangeFromTimeToTime(start: start, end: end)
+
+            // Size-targeted exports re-encode at an exact bitrate, which the
+            // preset-based session below cannot do.
+            if let plan {
+                var composition: AVVideoComposition?
+                if let crop {
+                    composition = try await VideoCropper.videoComposition(for: exportAsset, crop: crop)
+                }
+                let exporter = SizedVideoExporter()
+                let progress = sizedExport
+                progress.fraction = 0
+                progress.exporter = exporter
+                defer { progress.exporter = nil }
+                try await exporter.export(
+                    asset: exportAsset,
+                    timeRange: range,
+                    plan: plan,
+                    videoComposition: composition,
+                    to: outputURL
+                ) { fraction in
+                    Task { @MainActor in
+                        progress.fraction = fraction
+                    }
+                }
+                onExport()
+                dismiss()
+                return
+            }
 
             let preset: String
             if crop != nil {
