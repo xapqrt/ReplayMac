@@ -186,6 +186,7 @@ extension AppDelegate {
             )
             sessionSourceApp = nil
             sessionStartedAt = nil
+            enforceStorageLimitAfterSave()
             await sessionRecorder.configure(
                 enabled: false,
                 maxDurationSeconds: .infinity,

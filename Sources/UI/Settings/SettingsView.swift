@@ -11,6 +11,9 @@ public struct SettingsView: View {
     @Default(.quickPreset1Seconds) var quickPreset1Seconds
     @Default(.quickPreset2Seconds) var quickPreset2Seconds
     @Default(.quickPreset3Seconds) var quickPreset3Seconds
+    @Default(.storageLimitEnabled) var storageLimitEnabled
+    @Default(.storageLimitGB) var storageLimitGB
+    @Default(.storageLimitOnlyFullLengthRecordings) var storageLimitOnlyFullLengthRecordings
     @Default(.outputDirectoryPath) var outputDirectoryPath
     @Default(.launchAtLogin) var launchAtLogin
     @Default(.autoStartRecordingOnLaunch) var autoStartRecordingOnLaunch

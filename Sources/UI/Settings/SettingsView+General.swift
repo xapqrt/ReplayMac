@@ -38,6 +38,26 @@ extension SettingsView {
                     chooseOutputDirectory()
                 }
                 .buttonStyle(AccentButtonStyle())
+
+                Toggle("Limit clip storage", isOn: $storageLimitEnabled)
+                if storageLimitEnabled {
+                    Stepper(
+                        value: $storageLimitGB,
+                        in: AppSettings.storageLimitRangeGB,
+                        step: storageLimitGB < 20 ? 1 : 10
+                    ) {
+                        Text("Keep at most \(Self.storageLimitLabel(storageLimitGB))")
+                    }
+                    Toggle("Only delete full-length recordings", isOn: $storageLimitOnlyFullLengthRecordings)
+                    Label(
+                        storageLimitOnlyFullLengthRecordings
+                            ? "When the folder goes over the limit, the oldest sessions and extended replays are moved to the Trash. Short replays and favorites are never touched."
+                            : "When the folder goes over the limit, the oldest clips are moved to the Trash. Favorites are never touched.",
+                        systemImage: "info.circle"
+                    )
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(.system(size: 12, design: .rounded))
+                }
             } header: {
                 sectionHeader(icon: "folder", title: "Storage")
             }
@@ -159,5 +179,13 @@ extension SettingsView {
             launchAtLoginError = "Launch at login update failed: \(error.localizedDescription)"
             launchAtLogin.toggle()
         }
+    }
+
+    static func storageLimitLabel(_ gigabytes: Double) -> String {
+        if gigabytes >= 1000 {
+            let terabytes = gigabytes / 1000
+            return terabytes == terabytes.rounded() ? "\(Int(terabytes)) TB" : String(format: "%.1f TB", terabytes)
+        }
+        return gigabytes == gigabytes.rounded() ? "\(Int(gigabytes)) GB" : String(format: "%.1f GB", gigabytes)
     }
 }

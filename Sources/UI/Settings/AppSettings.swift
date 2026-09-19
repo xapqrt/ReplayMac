@@ -163,6 +163,19 @@ public enum AppSettings {
         min(max(seconds, quickPresetRange.lowerBound), quickPresetRange.upperBound)
     }
 
+    // MARK: Storage limit
+
+    public static var storageLimitEnabled: Bool { Defaults[.storageLimitEnabled] }
+    public static var storageLimitGB: Double { Defaults[.storageLimitGB] }
+    public static var storageLimitOnlyFullLengthRecordings: Bool { Defaults[.storageLimitOnlyFullLengthRecordings] }
+    /// Allowed cap (Medal offers 1 GB – 500 GB plus custom; 4 TB covers any
+    /// external drive).
+    public static let storageLimitRangeGB: ClosedRange<Double> = 1...4096
+    public static var storageLimitBytes: Int64 {
+        let clamped = min(max(storageLimitGB, storageLimitRangeGB.lowerBound), storageLimitRangeGB.upperBound)
+        return Int64(clamped * 1_000_000_000)
+    }
+
     /// Extra seconds retained in the ring buffers beyond the user-facing replay
     /// window. Video eviction is GOP-granular — whole keyframe groups (~2s at the
     /// encoder's 2s max keyframe interval) drop at once — so without headroom the
@@ -383,6 +396,9 @@ public extension Defaults.Keys {
     static let quickPreset1Seconds = Key<Int>("quickPreset1Seconds", default: 15)
     static let quickPreset2Seconds = Key<Int>("quickPreset2Seconds", default: 60)
     static let quickPreset3Seconds = Key<Int>("quickPreset3Seconds", default: 120)
+    static let storageLimitEnabled = Key<Bool>("storageLimitEnabled", default: false)
+    static let storageLimitGB = Key<Double>("storageLimitGB", default: 50)
+    static let storageLimitOnlyFullLengthRecordings = Key<Bool>("storageLimitOnlyFullLengthRecordings", default: false)
     static let outputDirectoryPath = Key<String>("outputDirectoryPath", default: AppSettings.defaultOutputDirectoryPath)
     static let launchAtLogin = Key<Bool>("launchAtLogin", default: false)
     static let autoStartRecordingOnLaunch = Key<Bool>("autoStartRecordingOnLaunch", default: true)

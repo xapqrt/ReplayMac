@@ -128,6 +128,7 @@ extension AppDelegate {
                 requestedDuration: lastSeconds,
                 clipEnd: triggeredAt
             )
+            enforceStorageLimitAfterSave()
 
             menuBarState.finishSaving(success: true)
             statusItemController.setLastClip(finalURLs.first)
@@ -213,6 +214,7 @@ extension AppDelegate {
                 requestedDuration: lastSeconds,
                 clipEnd: triggeredAt
             )
+            enforceStorageLimitAfterSave()
 
             menuBarState.finishSaving(success: true)
             statusItemController.setLastClip(savedURL)
