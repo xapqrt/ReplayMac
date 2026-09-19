@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import AVFoundation
 import Save
 import UI
 import Feedback
@@ -18,8 +19,14 @@ extension AppDelegate {
         // Resolve the source app now, on the trigger, not after the export:
         // by then the user may have tabbed away from the game.
         let sourceApp = currentForegroundApp()
+        let triggeredAt = Date()
         Task {
-            await saveConfiguredClip(lastSeconds: lastSeconds, trigger: trigger, sourceApp: sourceApp)
+            await saveConfiguredClip(
+                lastSeconds: lastSeconds,
+                trigger: trigger,
+                sourceApp: sourceApp,
+                triggeredAt: triggeredAt
+            )
         }
     }
 
@@ -39,15 +46,22 @@ extension AppDelegate {
 
     func saveLongBuffer(lastSeconds: TimeInterval, trigger: ClipTrigger) {
         let sourceApp = currentForegroundApp()
+        let triggeredAt = Date()
         Task {
-            await saveConfiguredLongBufferClip(lastSeconds: lastSeconds, trigger: trigger, sourceApp: sourceApp)
+            await saveConfiguredLongBufferClip(
+                lastSeconds: lastSeconds,
+                trigger: trigger,
+                sourceApp: sourceApp,
+                triggeredAt: triggeredAt
+            )
         }
     }
 
     func saveConfiguredClip(
         lastSeconds: TimeInterval,
         trigger: ClipTrigger = .unknown,
-        sourceApp: ClipSourceApp? = nil
+        sourceApp: ClipSourceApp? = nil,
+        triggeredAt: Date = Date()
     ) async {
         guard let outputDirectory = selectedOutputDirectoryOrNotify() else {
             menuBarState.showSaveFailedBriefly()
@@ -105,13 +119,14 @@ extension AppDelegate {
                 finalURLs = [savedURL]
             }
 
-            recordCaptureMetadata(
+            await recordCaptureMetadata(
                 for: finalURLs,
                 in: outputDirectory,
                 kind: .replay,
                 trigger: trigger,
                 sourceApp: sourceApp,
-                requestedDuration: lastSeconds
+                requestedDuration: lastSeconds,
+                clipEnd: triggeredAt
             )
 
             menuBarState.finishSaving(success: true)
@@ -137,7 +152,8 @@ extension AppDelegate {
     func saveConfiguredLongBufferClip(
         lastSeconds: TimeInterval,
         trigger: ClipTrigger = .unknown,
-        sourceApp: ClipSourceApp? = nil
+        sourceApp: ClipSourceApp? = nil,
+        triggeredAt: Date = Date()
     ) async {
         guard let outputDirectory = selectedOutputDirectoryOrNotify() else {
             menuBarState.showSaveFailedBriefly()
@@ -188,13 +204,14 @@ extension AppDelegate {
                 baseName: resolvedClipBaseName(sourceApp: sourceApp)
             )
 
-            recordCaptureMetadata(
+            await recordCaptureMetadata(
                 for: [savedURL],
                 in: outputDirectory,
                 kind: .extendedReplay,
                 trigger: trigger,
                 sourceApp: sourceApp,
-                requestedDuration: lastSeconds
+                requestedDuration: lastSeconds,
+                clipEnd: triggeredAt
             )
 
             menuBarState.finishSaving(success: true)
@@ -268,27 +285,60 @@ extension AppDelegate {
         return ClipSourceApp(bundleIdentifier: app.bundleIdentifier, name: name)
     }
 
-    /// Attaches capture facts (kind, trigger, source app) to freshly written
-    /// clips so the library can group by game and filter by type. Best effort:
-    /// a metadata failure must never turn a successful save into an error.
+    /// Attaches capture facts (kind, trigger, source app) and any bookmarks
+    /// that fall inside the clip's time window to freshly written clips, so
+    /// the library can group by game, filter by type and jump to marks.
+    /// Best effort: a metadata failure never turns a successful save into an
+    /// error.
+    ///
+    /// - Parameters:
+    ///   - clipStart: wall-clock start when known (sessions). Otherwise it is
+    ///     derived from `clipEnd` and the file's real duration, falling back
+    ///     to `requestedDuration`.
+    ///   - clipEnd: wall-clock moment the footage ends — the trigger time for
+    ///     replays, the stop time for sessions.
     func recordCaptureMetadata(
         for fileURLs: [URL],
         in outputDirectory: URL,
         kind: ClipCaptureKind,
         trigger: ClipTrigger,
         sourceApp: ClipSourceApp?,
-        requestedDuration: TimeInterval?
-    ) {
+        requestedDuration: TimeInterval?,
+        clipStart: Date? = nil,
+        clipEnd: Date = Date()
+    ) async {
         let record = ClipCaptureRecord(
             kind: kind,
             trigger: trigger,
             sourceApp: sourceApp,
-            capturedAt: Date(),
+            capturedAt: clipEnd,
             requestedDurationSeconds: requestedDuration
         )
         for fileURL in fileURLs {
-            ClipLibraryMetadataStore.recordCapture(record, for: fileURL, in: outputDirectory)
+            var bookmarks: [ClipBookmark] = []
+            let start: Date?
+            if let clipStart {
+                start = clipStart
+            } else if let duration = await Self.mediaDuration(of: fileURL) ?? requestedDuration {
+                start = clipEnd.addingTimeInterval(-duration)
+            } else {
+                start = nil
+            }
+            if let start {
+                bookmarks = bookmarkLedger.bookmarks(clipStart: start, clipEnd: clipEnd)
+            }
+            ClipLibraryMetadataStore.recordCapture(record, bookmarks: bookmarks, for: fileURL, in: outputDirectory)
         }
+    }
+
+    /// Duration of a finished media file, or nil when it cannot be read.
+    nonisolated static func mediaDuration(of url: URL) async -> TimeInterval? {
+        let asset = AVURLAsset(url: url)
+        guard let duration = try? await asset.load(.duration) else {
+            return nil
+        }
+        let seconds = CMTimeGetSeconds(duration)
+        return seconds.isFinite && seconds > 0 ? seconds : nil
     }
 
     private func availableDiskCapacityBytes() -> Int64? {

@@ -40,6 +40,18 @@ extension SettingsView {
             }
 
             Section {
+                KeyboardShortcuts.Recorder("Add bookmark", name: .addBookmark)
+                Label(
+                    "Marks the current moment while recording. Bookmarks that fall inside a saved replay or session are attached to that clip so you can jump straight to them.",
+                    systemImage: "info.circle"
+                )
+                .foregroundStyle(AppTheme.textSecondary)
+                .font(.system(size: 12, design: .rounded))
+            } header: {
+                sectionHeader(icon: "bookmark.fill", title: "Bookmarks")
+            }
+
+            Section {
                 KeyboardShortcuts.Recorder("Show or hide clip library", name: .openClipLibrary)
             } header: {
                 sectionHeader(icon: "film.stack", title: "Library")

@@ -265,10 +265,18 @@ public enum ClipLibraryMetadataStore {
     /// Entry point for the capture pipeline: attaches capture facts to a clip
     /// that was just written. Never overwrites user edits and never replaces
     /// an existing capture record (the first writer knows best).
-    public static func recordCapture(_ record: ClipCaptureRecord, for fileURL: URL, in directory: URL) {
+    public static func recordCapture(
+        _ record: ClipCaptureRecord,
+        bookmarks: [ClipBookmark] = [],
+        for fileURL: URL,
+        in directory: URL
+    ) {
         update(for: fileURL, in: directory) { entry in
             if entry.capture == nil {
                 entry.capture = record
+            }
+            if entry.bookmarks.isEmpty, !bookmarks.isEmpty {
+                entry.bookmarks = bookmarks.sorted { $0.seconds < $1.seconds }
             }
         }
         NotificationCenter.default.post(name: .replayCapClipMetadataDidChange, object: fileURL)

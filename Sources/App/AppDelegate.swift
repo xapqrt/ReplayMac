@@ -53,6 +53,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
     /// The app that was in front when the session started (the game), captured
     /// then because by the time the user stops they are often somewhere else.
     var sessionSourceApp: ClipSourceApp?
+    /// Wall-clock start of the running session, used to place bookmarks.
+    var sessionStartedAt: Date?
+    /// Moments marked with the bookmark hotkey; attached to clips on save.
+    var bookmarkLedger = BookmarkLedger()
     var isTerminatingAfterSessionSave = false
 
     let menuBarState = MenuBarState()

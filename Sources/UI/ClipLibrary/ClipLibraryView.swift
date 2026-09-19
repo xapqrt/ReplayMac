@@ -101,7 +101,7 @@ public struct ClipLibraryView: View {
         }
         .sheet(isPresented: previewSheetBinding) {
             if let previewURL {
-                ClipPreviewView(url: previewURL)
+                ClipPreviewView(url: previewURL, bookmarks: bookmarks(for: previewURL))
             }
         }
         .sheet(isPresented: trimSheetBinding) {
@@ -674,6 +674,12 @@ public struct ClipLibraryView: View {
                 }
             }
         )
+    }
+
+    /// Bookmarks attached to a clip, for the preview's jump chips.
+    private func bookmarks(for url: URL) -> [ClipBookmark] {
+        model.rows.first { $0.info.fileURL.standardizedFileURL == url.standardizedFileURL }?
+            .userMetadata.bookmarks ?? []
     }
 
     private var previewSheetBinding: Binding<Bool> {
@@ -1337,6 +1343,7 @@ private struct AudioTrackPickerView: View {
 
 private struct ClipPreviewView: View {
     let url: URL
+    var bookmarks: [ClipBookmark] = []
     @State private var player: AVPlayer?
     @State private var audioTrackChoices: [AudioTrackChoice] = []
     @State private var selectedAudioTrackID = AudioTrackChoice.allTracksID
@@ -1361,6 +1368,28 @@ private struct ClipPreviewView: View {
                 AudioTrackPickerView(choices: audioTrackChoices, selection: $selectedAudioTrackID)
             }
 
+            if !bookmarks.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(bookmarks) { bookmark in
+                            Button {
+                                seek(to: bookmark.seconds)
+                            } label: {
+                                Label(
+                                    bookmark.label.isEmpty
+                                        ? MenuBarState.formattedDuration(bookmark.seconds)
+                                        : "\(MenuBarState.formattedDuration(bookmark.seconds)) · \(bookmark.label)",
+                                    systemImage: "bookmark.fill"
+                                )
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Jump to bookmark")
+                        }
+                    }
+                }
+            }
+
             Text(url.lastPathComponent)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(AppTheme.textSecondary)
@@ -1376,6 +1405,15 @@ private struct ClipPreviewView: View {
         .onDisappear {
             player?.pause()
             player = nil
+        }
+    }
+
+    private func seek(to seconds: Double) {
+        guard let player else { return }
+        let time = CMTime(seconds: max(seconds, 0), preferredTimescale: 600)
+        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+        if player.rate == 0 {
+            player.play()
         }
     }
 

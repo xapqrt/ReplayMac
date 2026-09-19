@@ -27,6 +27,9 @@ extension AppDelegate {
         hotkeyManager.onToggleSessionRecording = { [weak self] in
             self?.toggleSessionRecording()
         }
+        hotkeyManager.onAddBookmark = { [weak self] in
+            self?.addBookmark()
+        }
         hotkeyManager.onOpenClipLibrary = { [weak self] in
             self?.toggleClipLibraryWindow()
         }

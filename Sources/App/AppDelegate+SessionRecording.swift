@@ -69,6 +69,7 @@ extension AppDelegate {
 
         isSessionRecording = true
         sessionSourceApp = currentForegroundApp()
+        sessionStartedAt = Date()
         menuBarState.setSessionRecording(true)
         statusItemController.refreshPresentation()
 
@@ -112,6 +113,7 @@ extension AppDelegate {
 
         isSessionFinalizeInProgress = true
         isSessionRecording = false
+        let sessionStoppedAt = Date()
         menuBarState.setSessionRecording(false)
         statusItemController.refreshPresentation()
 
@@ -172,15 +174,18 @@ extension AppDelegate {
                 mergeAudioTracks: AppSettings.mergeAudioTracks,
                 baseName: resolvedClipBaseName(sourceApp: sourceApp)
             )
-            recordCaptureMetadata(
+            await recordCaptureMetadata(
                 for: [savedURL],
                 in: outputDirectory,
                 kind: .session,
                 trigger: userInitiated ? .hotkey : .automatic,
                 sourceApp: sourceApp,
-                requestedDuration: nil
+                requestedDuration: nil,
+                clipStart: sessionStartedAt,
+                clipEnd: sessionStoppedAt
             )
             sessionSourceApp = nil
+            sessionStartedAt = nil
             await sessionRecorder.configure(
                 enabled: false,
                 maxDurationSeconds: .infinity,

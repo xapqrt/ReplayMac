@@ -11,5 +11,6 @@ public extension KeyboardShortcuts.Name {
     static let saveQuickPreset3 = Self("saveQuickPreset3")
     static let saveLongBuffer = Self("saveLongBuffer")
     static let toggleSessionRecording = Self("toggleSessionRecording")
+    static let addBookmark = Self("addBookmark")
     static let openClipLibrary = Self("openClipLibrary")
 }
