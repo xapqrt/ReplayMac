@@ -198,3 +198,36 @@ Cloud storage, share-link hosting, social feed, accounts, ads, premium tiers, wa
 3. **UI direction** — full main window (Medal-style, recommended) while keeping the menu bar as the lightweight path.
 4. **Order** — Phase 0 → 1 (UI shell) first, then 2/3 in parallel, or features (2/3) before the UI?
 5. **Always-on mic for voice clipping** — acceptable as an opt-in default-off feature with a visible listening indicator?
+
+---
+
+## 8. Progress log (branch `arena/01a0b90a-replaymac`)
+
+Decisions taken (2026-09-19): personal build for one M4 MacBook Air on macOS 27 → target macOS 26+, Apple silicon only; fundamentals first, UI (Phase 1) afterwards; CI on the fork.
+
+| Commit | What | Status |
+|---|---|---|
+| `a835c8f` | macOS 26+/arm64 target, KeyboardShortcuts 3.1.0 (macOS 26/27 recorder fix), `HotkeyManager` main-actor rewrite, CI on `xcode-27` + `macos-26`, `.app` artifact | ⏳ unverified — GitHub refused to start jobs ("account locked due to a billing issue") |
+| `0ddb357` | **Metadata v2**: per-clip capture record (kind, trigger, source app, time, requested length) + bookmarks list; locked read-modify-write store, library merges instead of overwriting; Source column; tests | ⏳ unverified |
+| `47bb8d6` | **Quick-preset hotkeys** with configurable lengths (5 s – 5 min) + third preset; tests | ⏳ unverified |
+| `ef14463` | **Bookmarks**: hotkey + menu item, ledger with debounce, attached to replays/sessions on save, jump chips in preview; tests | ⏳ unverified |
+| `2e62dfc` | **Storage limit**: cap output folder, oldest-first to Trash, favorites protected, "only full-length recordings" mode; tests | ⏳ unverified |
+| `206683a` | **Screenshot** hotkey + menu item (SCScreenshotManager, native pixels, `<output>/Screenshots`) | ⏳ unverified |
+| `adeb45c` | **Size-targeted export** (20/50/100/500 MB) with live estimate, planner + AVAssetReader/Writer H.264 transcode, progress/cancel; tests | ⏳ unverified |
+
+### Verifying locally (until Actions is unlocked)
+```sh
+git fetch origin && git checkout arena/01a0b90a-replaymac
+swift build 2>&1 | tail -40          # Xcode 26.2+ or 27
+swift test 2>&1 | tail -40
+./build-app.sh && open dist/ReplayMac.app
+```
+Paste any compiler output back into the session; nothing in this branch has been compiled yet (the sandbox has no Swift toolchain).
+
+### Next fundamentals (in order)
+1. Voice clipping ("clip that") via `SpeechAnalyzer` (macOS 26+), opt-in with a listening indicator.
+2. Webcam overlay (AVCaptureDevice → composited corner PiP) and per-track mic processing (noise suppression / PTT / mono).
+3. Per-game auto profiles (bind a capture profile to bundle IDs; switch on game launch).
+4. Watch folders / import (`imported` capture kind) and the library's Screenshots tab.
+5. Discord webhook / share-sheet targets for the sized export.
+Then Phase 1: the Medal-style main window (card grid, sidebar, per-game groups from the new metadata).
