@@ -6,6 +6,14 @@ public enum AudioCue {
         AudioServicesPlaySystemSound(1113)
     }
 
+    public static func playScreenshotTaken() {
+        if let sound = NSSound(named: NSSound.Name("Tink")) {
+            sound.play()
+        } else {
+            AudioServicesPlaySystemSound(1113)
+        }
+    }
+
     /// Short, distinct from the save cue, so a bookmark press is confirmed
     /// without being mistaken for a save.
     public static func playBookmarkAdded() {

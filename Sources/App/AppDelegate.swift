@@ -182,6 +182,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, @unchecked Sendable {
         statusItemController.onToggleSessionRecording = { [weak self] in
             self?.toggleSessionRecording()
         }
+        statusItemController.onAddBookmark = { [weak self] in
+            self?.addBookmark()
+        }
+        statusItemController.onTakeScreenshot = { [weak self] in
+            self?.takeScreenshot(trigger: .menu)
+        }
         statusItemController.onToggleRecording = { [weak self] in
             self?.toggleCapturePipeline()
         }

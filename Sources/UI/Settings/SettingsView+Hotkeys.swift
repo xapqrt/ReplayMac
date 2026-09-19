@@ -52,6 +52,18 @@ extension SettingsView {
             }
 
             Section {
+                KeyboardShortcuts.Recorder("Take screenshot", name: .takeScreenshot)
+                Label(
+                    "Saves a full-resolution PNG of the recorded display (or the display under the pointer) to a Screenshots folder inside your output folder.",
+                    systemImage: "info.circle"
+                )
+                .foregroundStyle(AppTheme.textSecondary)
+                .font(.system(size: 12, design: .rounded))
+            } header: {
+                sectionHeader(icon: "camera.viewfinder", title: "Screenshots")
+            }
+
+            Section {
                 KeyboardShortcuts.Recorder("Show or hide clip library", name: .openClipLibrary)
             } header: {
                 sectionHeader(icon: "film.stack", title: "Library")

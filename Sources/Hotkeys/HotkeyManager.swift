@@ -11,6 +11,7 @@ public final class HotkeyManager: @unchecked Sendable {
     public var onSaveLongBuffer: (() -> Void)?
     public var onToggleSessionRecording: (() -> Void)?
     public var onAddBookmark: (() -> Void)?
+    public var onTakeScreenshot: (() -> Void)?
     public var onOpenClipLibrary: (() -> Void)?
 
     private var isStarted = false
@@ -27,6 +28,7 @@ public final class HotkeyManager: @unchecked Sendable {
         .saveLongBuffer,
         .toggleSessionRecording,
         .addBookmark,
+        .takeScreenshot,
         .openClipLibrary
     ]
 
@@ -67,6 +69,9 @@ public final class HotkeyManager: @unchecked Sendable {
         }
         KeyboardShortcuts.onKeyUp(for: .addBookmark) { [weak self] in
             self?.onAddBookmark?()
+        }
+        KeyboardShortcuts.onKeyUp(for: .takeScreenshot) { [weak self] in
+            self?.onTakeScreenshot?()
         }
         KeyboardShortcuts.onKeyUp(for: .openClipLibrary) { [weak self] in
             self?.onOpenClipLibrary?()

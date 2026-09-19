@@ -28,6 +28,8 @@ public final class StatusItemController: NSObject, NSMenuDelegate, @unchecked Se
     public var onSaveClip: (() -> Void)?
     public var onSaveLongBuffer: (() -> Void)?
     public var onToggleSessionRecording: (() -> Void)?
+    public var onTakeScreenshot: (() -> Void)?
+    public var onAddBookmark: (() -> Void)?
     public var onToggleRecording: (() -> Void)?
     public var onOpenClipLibrary: (() -> Void)?
     public var onOpenSettings: (() -> Void)?
@@ -102,6 +104,14 @@ public final class StatusItemController: NSObject, NSMenuDelegate, @unchecked Se
         let toggleSessionRecordingItem = NSMenuItem(title: "", action: #selector(toggleSessionRecording), keyEquivalent: "")
         toggleSessionRecordingItem.target = self
         menu.addItem(toggleSessionRecordingItem)
+
+        let addBookmarkItem = NSMenuItem(title: "Add Bookmark", action: #selector(addBookmark), keyEquivalent: "")
+        addBookmarkItem.target = self
+        menu.addItem(addBookmarkItem)
+
+        let takeScreenshotItem = NSMenuItem(title: "Take Screenshot", action: #selector(takeScreenshot), keyEquivalent: "")
+        takeScreenshotItem.target = self
+        menu.addItem(takeScreenshotItem)
 
         let hotkeyHintItem = NSMenuItem(title: "No hotkey set — configure in Settings", action: nil, keyEquivalent: "")
         hotkeyHintItem.isEnabled = false
@@ -303,6 +313,14 @@ public final class StatusItemController: NSObject, NSMenuDelegate, @unchecked Se
 
     @objc private func toggleSessionRecording() {
         onToggleSessionRecording?()
+    }
+
+    @objc private func addBookmark() {
+        onAddBookmark?()
+    }
+
+    @objc private func takeScreenshot() {
+        onTakeScreenshot?()
     }
 
     @objc private func toggleRecording() {

@@ -30,6 +30,9 @@ extension AppDelegate {
         hotkeyManager.onAddBookmark = { [weak self] in
             self?.addBookmark()
         }
+        hotkeyManager.onTakeScreenshot = { [weak self] in
+            self?.takeScreenshot(trigger: .hotkey)
+        }
         hotkeyManager.onOpenClipLibrary = { [weak self] in
             self?.toggleClipLibraryWindow()
         }
