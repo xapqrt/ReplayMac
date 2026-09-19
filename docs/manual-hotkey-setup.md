@@ -1,10 +1,19 @@
 # Setting ReplayMac Hotkeys from the Terminal
 
-Normally you set hotkeys in **Settings → Hotkeys**. On some macOS versions
-(currently the macOS 27 "Golden Gate" betas), a system bug stops the shortcut
-recorder from registering key presses. Until Apple fixes it, you can set any
-hotkey from the Terminal instead. This is completely safe and fully reversible
-— it writes the same preference the Settings UI would.
+Normally you set hotkeys in **Settings → Hotkeys**, and on macOS 27 "Golden
+Gate" that now works. The recorder bug this page was written for lived in the
+KeyboardShortcuts library, not in macOS: upstream issue #241 traced it to three
+compounding defects — an event-monitor token held weakly, so it was deallocated
+before the first keypress; a `showsCancelButton` mutation that made AppKit
+restart field editing and tear the monitor down microseconds after it was armed
+(which is why it only failed when replacing an existing shortcut); and a
+swallowed `mouseUp` inside the field, so the clear button highlighted but never
+fired. All three are fixed in KeyboardShortcuts 3.1.0, which this build uses.
+
+Keep this page as a fallback and as a scripting reference: it is still the
+fastest way to set hotkeys in bulk, and it works if a future macOS release
+breaks the recorder again. It is completely safe and fully reversible — it
+writes the same preference the Settings UI would.
 
 Session recording uses `KeyboardShortcuts_toggleSessionRecording` (start/stop
 and save one continuous file).

@@ -1,7 +1,9 @@
 import SwiftUI
 import AppKit
-// @preconcurrency: Swift 6.1 (still served by GitHub's macos-latest runners)
-// rejects loadTracks' non-Sendable [AVAssetTrack] result; 6.3 accepts it.
+// @preconcurrency: Swift 6.1 rejects loadTracks' non-Sendable [AVAssetTrack]
+// result; 6.3+ accepts it. GitHub's macos-latest is now the macOS 26 image
+// (Xcode 26.6 / Swift 6.3) and the xcode-27 leg carries Swift 6.4, so this
+// import is belt-and-braces for older local toolchains rather than a CI need.
 @preconcurrency import AVFoundation
 import AVKit
 import Save

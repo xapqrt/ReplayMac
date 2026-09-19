@@ -16,7 +16,16 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0"),
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.2.0"),
+        // 3.1.0 fixes the shortcut recorder on macOS 26/27 (upstream issue
+        // #241: the event-monitor token was held weakly and died before the
+        // first keypress, `showsCancelButton` tore the monitor down right after
+        // it was armed, and mouseUp inside the field was swallowed so the clear
+        // button did nothing). It also fixes function-key shortcuts not firing
+        // while a menu is open — relevant for a menu-bar app. Requires a Swift
+        // 6.2+ toolchain (Xcode 26 or later).
+        // 3.0.0 renamed Name#defaultShortcut -> #initialShortcut and the
+        // `default:` parameter to `initial:`; this package uses neither.
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.1.0"),
         .package(url: "https://github.com/sindresorhus/Defaults", from: "9.0.0")
     ],
     targets: [

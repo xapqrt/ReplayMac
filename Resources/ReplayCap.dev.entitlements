@@ -4,8 +4,11 @@
 <dict>
     <key>com.apple.security.app-sandbox</key>
     <true/>
-    <key>com.apple.security.screen-capture</key>
-    <true/>
+    <!-- No screen-capture entitlement exists: ScreenCaptureKit is gated purely
+         by TCC (System Settings > Privacy & Security > Screen & System Audio
+         Recording) plus NSScreenCaptureUsageDescription in Info.plist. The
+         com.apple.security.screen-capture key previously listed here is not
+         part of Apple's entitlement reference and was ignored. -->
     <key>com.apple.security.device.audio-input</key>
     <true/>
     <!-- Default output location ~/Movies/ReplayCap -->

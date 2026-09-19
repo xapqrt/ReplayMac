@@ -7,7 +7,11 @@ on:
   pull_request:
 
 jobs:
+  # Default leg: GitHub's `macos-latest` is the macOS 26 arm64 image, whose
+  # default Xcode is 26.6 (Swift 6.3). This is the toolchain most contributors
+  # and the release build use.
   test:
+    name: Build & test (macOS 26 image, Xcode 26)
     runs-on: macos-latest
     timeout-minutes: 20
 
@@ -17,6 +21,38 @@ jobs:
 
       - name: Show Swift version
         run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+  # macOS 27 "Golden Gate" SDK leg. The `xcode-27` runner label is macOS 26
+  # with Xcode 27 as the default toolchain, i.e. Swift 6.4 and the macOS 27
+  # SDK — you do not need a macOS 27 host to build against the 27 SDK, and
+  # APIs introduced there are gated with `#available(macOS 27.0, *)` and
+  # back-deploy to the package's macOS 15 floor.
+  #
+  # This leg is the regression net for everything gated on the 27 SDK
+  # (SCClipBufferingOutput, SCRecordingEditor, the new SCStreamError.Code
+  # cases) and for the AVFoundation deprecation wave (84 APIs) in that SDK.
+  # GitHub currently marks the image as preview, so it reports without gating.
+  test-xcode-27:
+    name: Build & test (macOS 27 SDK, Xcode 27)
+    runs-on: xcode-27
+    continue-on-error: true
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+          xcrun --show-sdk-version --sdk macosx
 
       - name: Build
         run: swift build

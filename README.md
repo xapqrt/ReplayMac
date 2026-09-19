@@ -6,6 +6,8 @@
 
 > Note: ReplayMac on the Mac App Store is called **ReplayCap** — same app, different name (see above). It's a one-time purchase that supports development.
 
+> **About this tree.** This is a personal working fork of [picccassso/ReplayMac](https://github.com/picccassso/ReplayMac) (branched at v1.7.1), developed for the direct/GitHub distribution path only — the Mac App Store wrapper under `AppStore/` is dormant here and is not part of the release flow. Per [LICENSE.md](LICENSE.md), ReplayMac is free source-available software: modified builds are for personal use and may not be redistributed, rebranded, sold, or uploaded to an app store without the author's written permission.
+
 ReplayMac is a macOS menu bar instant-replay clipper.
 
 It continuously buffers recent screen/audio capture and saves the last N seconds to an MP4 when triggered. Recording and save state stay visible in the menu bar so you always know what the app is doing.
@@ -42,9 +44,9 @@ It continuously buffers recent screen/audio capture and saves the last N seconds
 
 ## Requirements
 
-- macOS 15+
-- Apple Silicon or Intel — builds from 1.6.9 onward are universal binaries. Earlier releases are Apple Silicon only.
-- Swift 6
+- macOS 15+ — this tree is developed on macOS 27 "Golden Gate"; anything introduced in the macOS 27 SDK is gated behind `#available(macOS 27.0, *)` so the macOS 15 floor holds
+- Apple Silicon or Intel — builds from 1.6.9 onward are universal binaries. Earlier releases are Apple Silicon only. macOS 27 itself runs only on Apple Silicon, so the x86_64 slice matters on macOS 15/26
+- Swift 6.2+ (Xcode 26 or later) — required by KeyboardShortcuts 3.x
 
 ## Download
 
@@ -145,7 +147,7 @@ Disconnected displays stay in the list as offline placeholders. If the preferred
 
 ## Troubleshooting
 
-**Can't record a hotkey in Settings?** Some macOS versions (currently the macOS 27 "Golden Gate" betas) have a system bug that stops the shortcut recorder from registering key presses. You can set every hotkey from the Terminal instead — see [Setting ReplayMac Hotkeys from the Terminal](docs/manual-hotkey-setup.md).
+**Can't record a hotkey in Settings?** Earlier builds hit a bug where the recorder looked focused but swallowed every keypress and the clear button did nothing on macOS 26/27. It was never a macOS bug: it lived in the KeyboardShortcuts library (upstream issue #241 — a weakly-held event-monitor token that died before the first keypress, a `showsCancelButton` mutation that tore the monitor down microseconds after it was armed, and a swallowed `mouseUp` inside the field). It is fixed in KeyboardShortcuts 3.1.0, which this build uses. If a recorder still misbehaves on your Mac, every hotkey can be set from the Terminal instead — see [Setting ReplayMac Hotkeys from the Terminal](docs/manual-hotkey-setup.md).
 
 ## Support
 

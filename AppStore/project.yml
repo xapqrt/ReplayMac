@@ -1,5 +1,14 @@
 # XcodeGen spec for the Mac App Store wrapper project.
 #
+# ⚠️ DORMANT in this tree. This fork ships the direct/GitHub build only
+# (./build-app.sh), so this wrapper is not part of the release flow and is not
+# exercised by CI. It is kept intact because the SwiftPM package stays the
+# source of truth for both variants and because AppBranding still compiles the
+# -DAPPSTORE path. If MAS packaging is ever revived: re-add the network
+# entitlement decision (the App Store entitlements deliberately have none,
+# which blocks cloud uploads and direct-to-platform sharing), regenerate with
+# xcodegen, and confirm the archive under the current Xcode.
+#
 # The SwiftPM package at the repo root stays the source of truth; this app
 # target compiles Sources/App directly and links the package's ReplayCapKit
 # library product. Regenerate the project after changing this file:
