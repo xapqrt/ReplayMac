@@ -13,9 +13,16 @@ extension SettingsView {
             }
 
             Section {
-                KeyboardShortcuts.Recorder("Save last 15 seconds", name: .saveLast15Seconds)
-                KeyboardShortcuts.Recorder("Save last 60 seconds", name: .saveLast60Seconds)
+                quickPresetRow(name: .saveLast15Seconds, seconds: $quickPreset1Seconds)
+                quickPresetRow(name: .saveLast60Seconds, seconds: $quickPreset2Seconds)
+                quickPresetRow(name: .saveQuickPreset3, seconds: $quickPreset3Seconds)
                 KeyboardShortcuts.Recorder("Save extended replay", name: .saveLongBuffer)
+                Label(
+                    "Each preset saves its own length from the replay buffer. A preset longer than the buffer duration (\(bufferDurationSeconds) s) saves what is available.",
+                    systemImage: "info.circle"
+                )
+                .foregroundStyle(AppTheme.textSecondary)
+                .font(.system(size: 12, design: .rounded))
             } header: {
                 sectionHeader(icon: "stopwatch", title: "Quick Presets")
             }
@@ -39,5 +46,37 @@ extension SettingsView {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// A shortcut recorder whose label tracks the preset length, with a
+    /// stepper to change that length (5 s steps, 5 s – 5 min).
+    private func quickPresetRow(name: KeyboardShortcuts.Name, seconds: Binding<Int>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            KeyboardShortcuts.Recorder(
+                "Save last \(SettingsView.quickPresetLabel(seconds.wrappedValue))",
+                name: name
+            )
+            Stepper(
+                value: seconds,
+                in: AppSettings.quickPresetRange,
+                step: 5
+            ) {
+                Text("Length: \(SettingsView.quickPresetLabel(seconds.wrappedValue))")
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(.system(size: 12, design: .rounded))
+            }
+        }
+    }
+
+    static func quickPresetLabel(_ seconds: Int) -> String {
+        let clamped = AppSettings.clampQuickPreset(seconds)
+        if clamped % 60 == 0 {
+            let minutes = clamped / 60
+            return minutes == 1 ? "1 minute" : "\(minutes) minutes"
+        }
+        if clamped > 60 {
+            return "\(clamped / 60) min \(clamped % 60) s"
+        }
+        return "\(clamped) seconds"
     }
 }

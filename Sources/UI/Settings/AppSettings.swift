@@ -148,6 +148,21 @@ public enum AppSettings {
 
     public static var bufferDurationSeconds: Int { Defaults[.bufferDurationSeconds] }
 
+    /// Allowed length for a quick-preset hotkey (Medal offers 15 s – 5 min).
+    public static let quickPresetRange: ClosedRange<Int> = 5...300
+
+    /// Lengths of the three quick-preset save hotkeys, in seconds, clamped
+    /// to `quickPresetRange`. Index 0/1 back the historical 15 s / 60 s
+    /// hotkeys; index 2 is the third preset.
+    public static var quickPresetSeconds: [Int] {
+        [Defaults[.quickPreset1Seconds], Defaults[.quickPreset2Seconds], Defaults[.quickPreset3Seconds]]
+            .map(clampQuickPreset)
+    }
+
+    public static func clampQuickPreset(_ seconds: Int) -> Int {
+        min(max(seconds, quickPresetRange.lowerBound), quickPresetRange.upperBound)
+    }
+
     /// Extra seconds retained in the ring buffers beyond the user-facing replay
     /// window. Video eviction is GOP-granular — whole keyframe groups (~2s at the
     /// encoder's 2s max keyframe interval) drop at once — so without headroom the
@@ -365,6 +380,9 @@ public enum AppSettings {
 
 public extension Defaults.Keys {
     static let bufferDurationSeconds = Key<Int>("bufferDurationSeconds", default: 30)
+    static let quickPreset1Seconds = Key<Int>("quickPreset1Seconds", default: 15)
+    static let quickPreset2Seconds = Key<Int>("quickPreset2Seconds", default: 60)
+    static let quickPreset3Seconds = Key<Int>("quickPreset3Seconds", default: 120)
     static let outputDirectoryPath = Key<String>("outputDirectoryPath", default: AppSettings.defaultOutputDirectoryPath)
     static let launchAtLogin = Key<Bool>("launchAtLogin", default: false)
     static let autoStartRecordingOnLaunch = Key<Bool>("autoStartRecordingOnLaunch", default: true)

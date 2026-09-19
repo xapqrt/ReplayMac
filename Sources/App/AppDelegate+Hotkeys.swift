@@ -10,11 +10,16 @@ extension AppDelegate {
         hotkeyManager.onToggleRecording = { [weak self] in
             self?.toggleCapturePipeline()
         }
+        // Preset lengths are read on each press so Settings changes apply
+        // immediately without re-registering the shortcuts.
         hotkeyManager.onSaveLast15Seconds = { [weak self] in
-            self?.saveClip(lastSeconds: 15, trigger: .hotkey)
+            self?.saveQuickPreset(index: 0)
         }
         hotkeyManager.onSaveLast60Seconds = { [weak self] in
-            self?.saveClip(lastSeconds: 60, trigger: .hotkey)
+            self?.saveQuickPreset(index: 1)
+        }
+        hotkeyManager.onSaveQuickPreset3 = { [weak self] in
+            self?.saveQuickPreset(index: 2)
         }
         hotkeyManager.onSaveLongBuffer = { [weak self] in
             self?.saveLongBufferFromUI(trigger: .hotkey)
@@ -28,4 +33,9 @@ extension AppDelegate {
         hotkeyManager.start()
     }
 
+    private func saveQuickPreset(index: Int) {
+        let presets = AppSettings.quickPresetSeconds
+        guard presets.indices.contains(index) else { return }
+        saveClip(lastSeconds: TimeInterval(presets[index]), trigger: .hotkey)
+    }
 }

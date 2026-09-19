@@ -366,6 +366,7 @@ public final class StatusItemController: NSObject, NSMenuDelegate, @unchecked Se
         KeyboardShortcuts.getShortcut(for: .saveClip) != nil
             || KeyboardShortcuts.getShortcut(for: .saveLast15Seconds) != nil
             || KeyboardShortcuts.getShortcut(for: .saveLast60Seconds) != nil
+            || KeyboardShortcuts.getShortcut(for: .saveQuickPreset3) != nil
             || KeyboardShortcuts.getShortcut(for: .saveLongBuffer) != nil
             || KeyboardShortcuts.getShortcut(for: .toggleSessionRecording) != nil
     }

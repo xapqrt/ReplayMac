@@ -8,6 +8,9 @@ public extension Notification.Name {
 
 public struct SettingsView: View {
     @Default(.bufferDurationSeconds) var bufferDurationSeconds
+    @Default(.quickPreset1Seconds) var quickPreset1Seconds
+    @Default(.quickPreset2Seconds) var quickPreset2Seconds
+    @Default(.quickPreset3Seconds) var quickPreset3Seconds
     @Default(.outputDirectoryPath) var outputDirectoryPath
     @Default(.launchAtLogin) var launchAtLogin
     @Default(.autoStartRecordingOnLaunch) var autoStartRecordingOnLaunch
